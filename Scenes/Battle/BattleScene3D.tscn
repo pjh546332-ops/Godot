@@ -1,0 +1,46 @@
+[gd_scene load_steps=6 format=3 uid="uid://battle_scene_3d"]
+
+[ext_resource type="Script" path="res://Scripts/Battle/battle_scene_3d.gd" id="1_battle"]
+[ext_resource type="Script" path="res://Scripts/Battle/grid_board_3d.gd" id="2_grid"]
+[ext_resource type="Script" path="res://Scripts/Battle/battle_unit_3d.gd" id="3_unit"]
+[ext_resource type="Script" path="res://Scripts/Battle/input_raycast_3d.gd" id="4_raycast"]
+
+[sub_resource type="Environment" id="1_env"]
+background_mode = 1
+background_color = Color(0.2, 0.25, 0.35, 1)
+
+[node name="BattleScene3D" type="Node3D"]
+script = ExtResource("1_battle")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("1_env")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 10, 5)
+
+[node name="CameraRig" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 7, 10, 7)
+current = true
+fov = 55.0
+
+[node name="GridBoard" type="Node3D" parent="."]
+script = ExtResource("2_grid")
+
+[node name="UnitsRoot" type="Node3D" parent="."]
+
+[node name="Unit_Ally" type="Node3D" parent="UnitsRoot"]
+script = ExtResource("3_unit")
+
+[node name="InputRaycast" type="Node3D" parent="."]
+script = ExtResource("4_raycast")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Label" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 300.0
+offset_bottom = 60.0
+text = "선택: 없음"
