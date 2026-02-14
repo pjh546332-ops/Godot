@@ -2,6 +2,8 @@ extends Node3D
 
 ## 3D 전술 TRPG 전투 씬: 격자 보드, 유닛, 턴, 이동, 공격.
 
+signal battle_result(won: bool, wiped: bool, loot: Array, meta_gain: int)
+
 enum Mode { NONE, MOVE, ATTACK }
 
 @onready var world_env: WorldEnvironment = $WorldEnvironment
@@ -18,7 +20,7 @@ enum Mode { NONE, MOVE, ATTACK }
 const MOVE_DURATION: float = 0.3
 const HIGHLIGHT_COLOR: Color = Color(0.3, 0.9, 0.4, 0.8)
 const ATTACK_HIGHLIGHT_COLOR: Color = Color(0.9, 0.2, 0.2, 0.8)
-
+var _camera_controller: Node
 var _selected_unit: BattleUnit3D = null
 var _reachable_cells: Array[Vector2i] = []
 var _attackable_cells: Array[Vector2i] = []
@@ -42,7 +44,11 @@ const UNIT_PAWN_SCENE: PackedScene = preload("res://Modules/TRPG/Scenes/UnitPawn
 
 func _ready() -> void:
 	roster = TrpgRoster.new()
-	roster.unlocked_count = unlocked_count
+	var uc: int = unlocked_count
+	var ss: Node = get_node_or_null("/root/StateService")
+	if ss and ss.get("campaign"):
+		uc = ss.campaign.unlocked_count
+	roster.unlocked_count = uc
 	turn_manager = TurnManager.new()
 	add_child(turn_manager)
 	_setup_environment()
@@ -94,7 +100,10 @@ func _ensure_available_maps() -> void:
 		"res://Modules/TRPG/Data/Maps/forest.tres",
 		"res://Modules/TRPG/Data/Maps/ruins.tres",
 		"res://Modules/TRPG/Data/Maps/bridge.tres",
-		"res://Modules/TRPG/Data/Maps/arena.tres"
+		"res://Modules/TRPG/Data/Maps/arena.tres",
+		"res://Modules/TRPG/Data/Maps/map_9x9.tres",
+		"res://Modules/TRPG/Data/Maps/map_12x12.tres",
+		"res://Modules/TRPG/Data/Maps/map_15x15.tres"
 	]
 	for p in paths:
 		var m: TrpgMapData = load(p) as TrpgMapData
@@ -130,29 +139,23 @@ func _setup_environment() -> void:
 
 
 func _setup_camera() -> void:
-	if not cam:
+	if not camera_rig or not cam or not grid_board:
 		return
-	var w: int = grid_board.GRID_WIDTH if grid_board else 10
-	var h: int = grid_board.GRID_HEIGHT if grid_board else 10
-	var cx: float = float(w) * 0.5 * grid_board.TILE_SIZE if grid_board else 5.0
-	var cz: float = float(h) * 0.5 * grid_board.TILE_SIZE if grid_board else 5.0
-	var target: Vector3 = Vector3(cx, 0, cz)
-	var dist: float = 14.0
-	var yaw: float = deg_to_rad(45)
-	var pitch: float = deg_to_rad(45)
-	var dir: Vector3 = Vector3(
-		sin(yaw) * cos(pitch),
-		-sin(pitch),
-		-cos(yaw) * cos(pitch)
-	)
-	cam.global_position = target - dir * dist
-	cam.look_at(target, Vector3.UP)
+	var ControllerScript: GDScript = load("res://Modules/TRPG/Scripts/battle_camera_controller.gd") as GDScript
+	_camera_controller = ControllerScript.new()
+	_camera_controller.set("camera_rig", camera_rig)
+	_camera_controller.set("cam", cam)
+	_camera_controller.set("grid_board", grid_board)
+	add_child(_camera_controller)
+	_camera_controller.call("set_map_size", grid_board.GRID_WIDTH, grid_board.GRID_HEIGHT)
 
 
 func _setup_pathfinding() -> void:
-	var w: int = grid_board.GRID_WIDTH if grid_board else 10
-	var h: int = grid_board.GRID_HEIGHT if grid_board else 10
-	var blocked: Array = grid_board.get_blocked_cells() if grid_board else []
+	if not grid_board:
+		return
+	var w: int = grid_board.GRID_WIDTH
+	var h: int = grid_board.GRID_HEIGHT
+	var blocked: Array = grid_board.get_blocked_cells()
 	_pathfinder = PathfindingAStar.new()
 	_pathfinder.setup(w, h, blocked)
 	_range_finder = RangeFinder.new()
@@ -202,12 +205,12 @@ func _setup_units(plan: TrpgDeploymentPlan = null) -> void:
 			if enemy_idx < enemy_spawns.size():
 				start_cell = enemy_spawns[enemy_idx]
 			else:
-				start_cell = _find_nearest_free_cell(Vector2i(_current_map.width - 1, int(_current_map.height / 2)))
+				start_cell = _find_nearest_free_cell(Vector2i(grid_board.GRID_WIDTH - 1, grid_board.GRID_HEIGHT >> 1))
 			enemy_idx += 1
 			while _range_finder.is_blocked(start_cell) or _is_cell_occupied_by_unit(start_cell, u):
 				start_cell.x -= 1
 				if start_cell.x < 0:
-					start_cell.x = _current_map.width - 1
+					start_cell.x = grid_board.GRID_WIDTH - 1
 					start_cell.y -= 1
 				if start_cell.y < 0:
 					break
@@ -221,8 +224,8 @@ func _setup_units(plan: TrpgDeploymentPlan = null) -> void:
 
 
 func _find_nearest_free_cell(from: Vector2i) -> Vector2i:
-	var w: int = _current_map.width
-	var h: int = _current_map.height
+	var w: int = grid_board.GRID_WIDTH
+	var h: int = grid_board.GRID_HEIGHT
 	var dirs: Array[Vector2i] = [
 		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 		Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
@@ -246,9 +249,11 @@ func _find_nearest_free_cell(from: Vector2i) -> Vector2i:
 
 func _get_auto_enemy_spawns() -> Array:
 	var out: Array = []
-	var right_start: int = maxi(0, _current_map.width - 3)
-	for x in range(right_start, _current_map.width):
-		for y in range(_current_map.height):
+	var w: int = grid_board.GRID_WIDTH
+	var h: int = grid_board.GRID_HEIGHT
+	var right_start: int = maxi(0, w - 3)
+	for x in range(right_start, w):
+		for y in range(h):
 			var c: Vector2i = Vector2i(x, y)
 			if not grid_board.is_blocked(c):
 				out.append(c)
@@ -340,9 +345,14 @@ func _on_battle_ended(winner_team: TurnManager.Team) -> void:
 	if input_raycast:
 		input_raycast.input_locked = true
 	action_panel.set_enabled(false)
-	var msg: String = "승리!" if winner_team == TurnManager.Team.ALLY else "패배!"
+	var won: bool = (winner_team == TurnManager.Team.ALLY)
+	var wiped: bool = (winner_team == TurnManager.Team.ENEMY)
+	var loot: Array = ["더미_전투보상"] if won else []
+	var meta_gain: int = 5 if won else 0
+	var msg: String = "승리!" if won else "패배!"
 	debug_label.text = "전투 종료 - %s" % msg
 	print("[BattleScene3D] Battle ended - %s" % msg)
+	battle_result.emit(won, wiped, loot, meta_gain)
 
 
 func _call_enemy_ai(unit: BattleUnit3D) -> void:
@@ -463,6 +473,22 @@ func _count_enemies_in_cells(cells: Array[Vector2i]) -> int:
 					n += 1
 					break
 	return n
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("end_turn"):
+		return
+	if deployment_ui and deployment_ui.visible:
+		return
+	if _is_ai_turn or _is_moving:
+		return
+	if input_raycast and input_raycast.input_locked:
+		return
+	var cu: BattleUnit3D = turn_manager.get_current_unit() if turn_manager else null
+	if not cu or cu.team != BattleUnit3D.Team.ALLY:
+		return
+	_on_action_end_turn()
+	get_viewport().set_input_as_handled()
 
 
 func _on_action_end_turn() -> void:

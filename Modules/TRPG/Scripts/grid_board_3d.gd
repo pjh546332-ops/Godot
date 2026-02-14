@@ -22,11 +22,12 @@ func _ready() -> void:
 
 func apply_map(map: TrpgMapData) -> void:
 	_clear_all()
-	GRID_WIDTH = map.width
-	GRID_HEIGHT = map.height
+	GRID_WIDTH = map.get_effective_width()
+	GRID_HEIGHT = map.get_effective_height()
 	_blocked_cells.clear()
 	for c in map.blocked_cells:
-		_blocked_cells.append(c)
+		if c.x >= 0 and c.x < GRID_WIDTH and c.y >= 0 and c.y < GRID_HEIGHT:
+			_blocked_cells.append(c)
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
 			var cell := Vector2i(x, y)
@@ -115,6 +116,13 @@ func _create_obstacle(cell: Vector2i) -> void:
 	mesh_inst.material_override = mat
 	add_child(mesh_inst)
 	_obstacle_meshes.append(mesh_inst)
+
+
+func get_world_bounds() -> AABB:
+	var origin: Vector3 = global_position
+	var size_x: float = float(GRID_WIDTH) * TILE_SIZE
+	var size_z: float = float(GRID_HEIGHT) * TILE_SIZE
+	return AABB(origin, Vector3(size_x, 0.01, size_z))
 
 
 func get_cell_at_world(pos: Vector3) -> Vector2i:
