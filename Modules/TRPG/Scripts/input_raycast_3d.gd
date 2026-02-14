@@ -3,7 +3,6 @@ class_name InputRaycast3D
 
 ## 레이캐스트로 타일/유닛 클릭 감지.
 
-const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
 signal tile_hit(cell: Vector2i)
 signal unit_hit(unit: Node)
 ## 이동 중 우클릭 시 발행. 이동 취소 없이 "이동 완료 후 해제" 예약.

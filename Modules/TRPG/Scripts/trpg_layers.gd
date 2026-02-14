@@ -1,7 +1,6 @@
-extends RefCounted
-class_name TrpgLayers
+extends Node
 
-## TRPG 전투용 물리 레이어/마스크 상수. 한 곳에서 관리.
+## TRPG 전투용 물리 레이어/마스크 상수. 한 곳에서 관리. (Autoload: TrpgLayers)
 
 const LAYER_FLOOR := 1
 const LAYER_UNIT := 2

@@ -3,7 +3,6 @@ class_name GridBoard3D
 
 ## 격자 보드: 타일 MeshInstance3D + collision.
 
-const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
 const TILE_SIZE: float = 1.0
 const GRID_WIDTH: int = 10
 const GRID_HEIGHT: int = 10

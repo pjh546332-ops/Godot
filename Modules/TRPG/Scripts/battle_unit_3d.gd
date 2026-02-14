@@ -3,7 +3,6 @@ class_name BattleUnit3D
 
 ## 전투 유닛: Sprite3D + billboard, 팀/HP/공격, 격자 셀에 위치.
 
-const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
 enum Team { ALLY, ENEMY }
 
 signal clicked(unit: BattleUnit3D)
