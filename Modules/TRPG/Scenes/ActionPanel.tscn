@@ -8,8 +8,8 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -220.0
-offset_top = -100.0
+offset_left = -260.0
+offset_top = -140.0
 offset_right = -20.0
 offset_bottom = -20.0
 grow_horizontal = 0
@@ -33,18 +33,38 @@ theme_override_constants/separation = 8
 layout_mode = 2
 text = "-"
 
-[node name="HBox" type="HBoxContainer" parent="VBox"]
+[node name="PointsRow" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="BtnMove" type="Button" parent="VBox/HBox"]
+[node name="LabelAP" type="Label" parent="VBox/PointsRow"]
+layout_mode = 2
+text = "AP"
+
+[node name="APBars" type="HBoxContainer" parent="VBox/PointsRow"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="LabelMP" type="Label" parent="VBox/PointsRow"]
+layout_mode = 2
+text = "MP"
+
+[node name="MPBars" type="HBoxContainer" parent="VBox/PointsRow"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ButtonsRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BtnMove" type="Button" parent="VBox/ButtonsRow"]
 layout_mode = 2
 text = "Move"
 
-[node name="BtnAttack" type="Button" parent="VBox/HBox"]
+[node name="BtnAttack" type="Button" parent="VBox/ButtonsRow"]
 layout_mode = 2
 text = "Attack"
 
-[node name="BtnWait" type="Button" parent="VBox/HBox"]
+[node name="BtnEndTurn" type="Button" parent="VBox/ButtonsRow"]
 layout_mode = 2
-text = "Wait"
+text = "End Turn"

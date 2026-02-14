@@ -13,6 +13,7 @@ enum Mode { NONE, MOVE, ATTACK }
 @onready var input_raycast: InputRaycast3D = $InputRaycast
 @onready var debug_label: Label = $CanvasLayer/Label
 @onready var action_panel: ActionPanel = $CanvasLayer/ActionPanel
+@onready var deployment_ui: TrpgDeploymentUI = $CanvasLayer/DeploymentUI
 
 const MOVE_DURATION: float = 0.3
 const HIGHLIGHT_COLOR: Color = Color(0.3, 0.9, 0.4, 0.8)
@@ -31,18 +32,89 @@ var _mode: Mode = Mode.NONE
 var turn_manager: TurnManager
 var _is_ai_turn: bool = false
 
+@export var unlocked_count: int = 4
+@export var skip_deployment: bool = false
+@export var available_maps: Array[TrpgMapData] = []
+var roster: TrpgRoster
+var _current_map: TrpgMapData
+const UNIT_PAWN_SCENE: PackedScene = preload("res://Modules/TRPG/Scenes/UnitPawn.tscn")
+
 
 func _ready() -> void:
+	roster = TrpgRoster.new()
+	roster.unlocked_count = unlocked_count
 	turn_manager = TurnManager.new()
 	add_child(turn_manager)
 	_setup_environment()
+	_current_map = _pick_random_map()
+	grid_board.apply_map(_current_map)
 	_setup_camera()
 	_setup_pathfinding()
-	_setup_units()
+	if skip_deployment or not deployment_ui:
+		var auto_plan: TrpgDeploymentPlan = _create_auto_plan()
+		_do_start_battle(auto_plan)
+	else:
+		deployment_ui.setup(roster, null, _current_map)
+		deployment_ui.deployment_confirmed.connect(_on_deployment_confirmed)
+		deployment_ui.visible = true
+
+
+func _create_auto_plan() -> TrpgDeploymentPlan:
+	var p: TrpgDeploymentPlan = TrpgDeploymentPlan.new()
+	var ids: Array = roster.get_unlocked_ids()
+	var idx: int = 0
+	for y in range(4):
+		for x in range(4):
+			if idx >= ids.size():
+				break
+			p.set_placement(ids[idx], Vector2i(x, y))
+			idx += 1
+	return p
+
+
+func _on_deployment_confirmed(plan: TrpgDeploymentPlan) -> void:
+	if deployment_ui:
+		deployment_ui.visible = false
+	_do_start_battle(plan)
+
+
+func _do_start_battle(plan: TrpgDeploymentPlan) -> void:
+	_setup_units(plan)
 	_setup_turn_manager()
 	_connect_signals()
 	_update_debug_label()
 	turn_manager.start_battle()
+
+
+func _ensure_available_maps() -> void:
+	if available_maps.size() > 0:
+		return
+	var paths: Array[String] = [
+		"res://Modules/TRPG/Data/Maps/plains.tres",
+		"res://Modules/TRPG/Data/Maps/forest.tres",
+		"res://Modules/TRPG/Data/Maps/ruins.tres",
+		"res://Modules/TRPG/Data/Maps/bridge.tres",
+		"res://Modules/TRPG/Data/Maps/arena.tres"
+	]
+	for p in paths:
+		var m: TrpgMapData = load(p) as TrpgMapData
+		if m:
+			available_maps.append(m)
+
+
+func _pick_random_map() -> TrpgMapData:
+	_ensure_available_maps()
+	if available_maps.size() > 0:
+		return available_maps[randi() % available_maps.size()]
+	var fallback: TrpgMapData = TrpgMapData.new()
+	fallback.map_id = "default"
+	fallback.width = 10
+	fallback.height = 10
+	fallback.blocked_cells = [Vector2i(2, 2), Vector2i(3, 2), Vector2i(5, 4)]
+	fallback.ally_deploy_anchor = Vector2i(1, 1)
+	fallback.deploy_size = Vector2i(4, 4)
+	fallback.enemy_spawn = [Vector2i(8, 4), Vector2i(7, 5)]
+	return fallback
 
 
 func _setup_environment() -> void:
@@ -87,34 +159,57 @@ func _setup_pathfinding() -> void:
 	_range_finder.setup(w, h, blocked)
 
 
-func _setup_units() -> void:
-	if not units_root or not grid_board:
+func _setup_units(plan: TrpgDeploymentPlan = null) -> void:
+	if not units_root or not grid_board or not roster or not _current_map:
 		return
-	var ally_spawns: Array[Vector2i] = [Vector2i(1, 1), Vector2i(2, 1)]
-	var enemy_spawns: Array[Vector2i] = [Vector2i(8, 4), Vector2i(7, 5)]
-	var ally_idx: int = 0
+	var deploy_plan: TrpgDeploymentPlan = plan if plan else _create_auto_plan()
+	for dy in range(_current_map.deploy_size.y):
+		for dx in range(_current_map.deploy_size.x):
+			var deploy_cell: Vector2i = Vector2i(dx, dy)
+			var unit_id: String = deploy_plan.get_unit_at_cell(deploy_cell)
+			if unit_id.is_empty():
+				continue
+			var start_cell: Vector2i = _current_map.deploy_to_map_cell(deploy_cell)
+			if _range_finder.is_blocked(start_cell) or _is_cell_occupied_by_unit(start_cell, null):
+				start_cell = _find_nearest_free_cell(start_cell)
+			var ud: TrpgUnitData = TrpgUnitData.load_for_id(unit_id)
+			if not ud:
+				continue
+			var pawn: Node3D = UNIT_PAWN_SCENE.instantiate()
+			if pawn is BattleUnit3D:
+				var bu: BattleUnit3D = pawn
+				bu.data = ud
+				bu.team = BattleUnit3D.Team.ALLY
+				bu.name = ud.display_name
+				while _range_finder.is_blocked(start_cell) or _is_cell_occupied_by_unit(start_cell, bu):
+					start_cell = _find_nearest_free_cell(start_cell)
+				bu.grid_cell = start_cell
+				_range_finder.set_occupied(start_cell, true)
+				units_root.add_child(bu)
+				var world_pos: Vector3 = grid_board.get_world_at_cell(start_cell) + Vector3(0, 0.5, 0)
+				bu.position = units_root.to_local(world_pos)
+				if bu.has_signal("clicked"):
+					bu.clicked.connect(_on_unit_clicked)
+				if bu.has_signal("died"):
+					bu.died.connect(_on_unit_died)
+	var enemy_spawns: Array = _current_map.enemy_spawn
+	if enemy_spawns.is_empty():
+		enemy_spawns = _get_auto_enemy_spawns()
 	var enemy_idx: int = 0
 	for u in units_root.get_children():
-		if u is BattleUnit3D:
+		if u is BattleUnit3D and u.team == BattleUnit3D.Team.ENEMY:
 			var start_cell: Vector2i
-			if u.team == BattleUnit3D.Team.ALLY:
-				start_cell = ally_spawns[ally_idx % ally_spawns.size()]
-				ally_idx += 1
+			if enemy_idx < enemy_spawns.size():
+				start_cell = enemy_spawns[enemy_idx]
 			else:
-				start_cell = enemy_spawns[enemy_idx % enemy_spawns.size()]
-				enemy_idx += 1
+				start_cell = _find_nearest_free_cell(Vector2i(_current_map.width - 1, int(_current_map.height / 2)))
+			enemy_idx += 1
 			while _range_finder.is_blocked(start_cell) or _is_cell_occupied_by_unit(start_cell, u):
-				if u.team == BattleUnit3D.Team.ALLY:
-					start_cell.x += 1
-					if start_cell.x >= 5:
-						start_cell.x = 1
-						start_cell.y += 1
-				else:
-					start_cell.x -= 1
-					if start_cell.x < 5:
-						start_cell.x = 8
-						start_cell.y -= 1
-				if start_cell.y >= grid_board.GRID_HEIGHT or start_cell.y < 0:
+				start_cell.x -= 1
+				if start_cell.x < 0:
+					start_cell.x = _current_map.width - 1
+					start_cell.y -= 1
+				if start_cell.y < 0:
 					break
 			u.grid_cell = start_cell
 			u.global_position = grid_board.get_world_at_cell(start_cell) + Vector3(0, 0.5, 0)
@@ -123,6 +218,41 @@ func _setup_units() -> void:
 				u.clicked.connect(_on_unit_clicked)
 			if u.has_signal("died"):
 				u.died.connect(_on_unit_died)
+
+
+func _find_nearest_free_cell(from: Vector2i) -> Vector2i:
+	var w: int = _current_map.width
+	var h: int = _current_map.height
+	var dirs: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)
+	]
+	var visited: Dictionary = {}
+	var queue: Array = [from]
+	visited[Vector2i(from.x, from.y)] = true
+	while queue.size() > 0:
+		var c: Vector2i = queue.pop_front()
+		if c.x >= 0 and c.x < w and c.y >= 0 and c.y < h:
+			if not _range_finder.is_blocked(c) and not _is_cell_occupied_by_unit(c, null):
+				return c
+		for d in dirs:
+			var nc: Vector2i = Vector2i(c.x + d.x, c.y + d.y)
+			var key: Vector2i = Vector2i(nc.x, nc.y)
+			if not visited.get(key, false) and nc.x >= 0 and nc.x < w and nc.y >= 0 and nc.y < h:
+				visited[key] = true
+				queue.append(nc)
+	return from
+
+
+func _get_auto_enemy_spawns() -> Array:
+	var out: Array = []
+	var right_start: int = maxi(0, _current_map.width - 3)
+	for x in range(right_start, _current_map.width):
+		for y in range(_current_map.height):
+			var c: Vector2i = Vector2i(x, y)
+			if not grid_board.is_blocked(c):
+				out.append(c)
+	return out
 
 
 func _setup_turn_manager() -> void:
@@ -167,8 +297,8 @@ func _connect_signals() -> void:
 			action_panel.action_move.connect(_on_action_move)
 		if action_panel.has_signal("action_attack"):
 			action_panel.action_attack.connect(_on_action_attack)
-		if action_panel.has_signal("action_wait"):
-			action_panel.action_wait.connect(_on_action_wait)
+		if action_panel.has_signal("action_end_turn"):
+			action_panel.action_end_turn.connect(_on_action_end_turn)
 
 
 func _on_unit_died(unit: BattleUnit3D) -> void:
@@ -183,6 +313,7 @@ func _on_turn_started(unit: BattleUnit3D) -> void:
 	_clear_highlights()
 	if unit and unit.team == BattleUnit3D.Team.ALLY:
 		action_panel.set_unit(unit)
+		action_panel.set_attack_available(_has_attackable_enemy(unit))
 		action_panel.set_enabled(true)
 		_is_ai_turn = false
 		if input_raycast:
@@ -241,7 +372,7 @@ func _run_enemy_ai(enemy: BattleUnit3D) -> void:
 		_end_turn()
 		return
 	var move_cell: Vector2i = EnemyAI.choose_move_toward_target(enemy, target, _pathfinder, _range_finder)
-	if move_cell != ec:
+	if move_cell != ec and enemy.pay_move_token():
 		_range_finder.set_occupied(ec, false)
 		_range_finder.set_occupied(move_cell, true)
 		enemy.set_grid_cell(move_cell)
@@ -272,18 +403,20 @@ func _get_occupied_for_path(from_cell: Vector2i, to_cell: Vector2i) -> Array:
 func _do_attack(attacker: BattleUnit3D, target: BattleUnit3D) -> void:
 	if not is_instance_valid(target) or target.is_dead():
 		return
+	if not attacker.pay(2):
+		return
 	target.apply_damage(attacker.attack_damage)
 	debug_label.text = "%s -> %s (%d 데미지)" % [attacker.name, target.name, attacker.attack_damage]
 	print("[BattleScene3D] %s attacks %s for %d damage" % [attacker.name, target.name, attacker.attack_damage])
 
 
 func _end_turn() -> void:
-	turn_manager.end_turn()
+	turn_manager.end_current_turn()
 
 
 func _on_action_move() -> void:
 	var cu: BattleUnit3D = turn_manager.get_current_unit()
-	if not cu or cu.team != BattleUnit3D.Team.ALLY:
+	if not cu or cu.team != BattleUnit3D.Team.ALLY or not cu.can_move():
 		return
 	_mode = Mode.MOVE
 	_selected_unit = cu
@@ -295,12 +428,13 @@ func _on_action_move() -> void:
 
 func _on_action_attack() -> void:
 	var cu: BattleUnit3D = turn_manager.get_current_unit()
-	if not cu or cu.team != BattleUnit3D.Team.ALLY:
+	if not cu or cu.team != BattleUnit3D.Team.ALLY or not cu.can_pay(2):
 		return
 	_mode = Mode.ATTACK
 	_selected_unit = cu
 	_reachable_cells.clear()
 	_attackable_cells = _get_attackable_cells(cu)
+	action_panel.set_attack_available(_count_enemies_in_cells(_attackable_cells) > 0)
 	grid_board.highlight_cells(_attackable_cells, ATTACK_HIGHLIGHT_COLOR)
 	_update_debug_label()
 
@@ -312,7 +446,26 @@ func _get_attackable_cells(attacker: BattleUnit3D) -> Array[Vector2i]:
 	return out
 
 
-func _on_action_wait() -> void:
+func _has_attackable_enemy(unit: BattleUnit3D) -> bool:
+	if not unit or unit.team != BattleUnit3D.Team.ALLY:
+		return false
+	var cells: Array[Vector2i] = _get_attackable_cells(unit)
+	return _count_enemies_in_cells(cells) > 0
+
+
+func _count_enemies_in_cells(cells: Array[Vector2i]) -> int:
+	var n: int = 0
+	for u in units_root.get_children():
+		if u is BattleUnit3D and u.team == BattleUnit3D.Team.ENEMY and is_instance_valid(u) and not u.is_dead():
+			var c: Vector2i = u.grid_cell
+			for cell in cells:
+				if cell.x == c.x and cell.y == c.y:
+					n += 1
+					break
+	return n
+
+
+func _on_action_end_turn() -> void:
 	_mode = Mode.NONE
 	_selected_unit = null
 	_clear_highlights()
@@ -327,7 +480,8 @@ func _on_cancel_requested() -> void:
 		_selected_unit = null
 		_clear_highlights()
 		if action_panel and turn_manager.get_current_unit():
-			action_panel.set_unit(turn_manager.get_current_unit())
+			var cu: BattleUnit3D = turn_manager.get_current_unit()
+			action_panel.refresh(_has_attackable_enemy(cu))
 		_update_debug_label()
 
 
@@ -345,7 +499,9 @@ func _on_unit_clicked(unit: BattleUnit3D) -> void:
 				_mode = Mode.NONE
 				_selected_unit = null
 				_clear_highlights()
-				_end_turn()
+				if action_panel:
+					action_panel.refresh(_has_attackable_enemy(cu))
+				_update_debug_label()
 				return
 		return
 	if unit == cu:
@@ -373,7 +529,8 @@ func _on_tile_hit(cell: Vector2i) -> void:
 		_selected_unit = null
 		_clear_highlights()
 		if action_panel and turn_manager.get_current_unit():
-			action_panel.set_unit(turn_manager.get_current_unit())
+			var cu: BattleUnit3D = turn_manager.get_current_unit()
+			action_panel.refresh(_has_attackable_enemy(cu))
 		_update_debug_label()
 		return
 	if _mode == Mode.MOVE and _selected_unit:
@@ -403,8 +560,11 @@ func _deselect_unit() -> void:
 
 
 func _move_unit_to(unit: BattleUnit3D, target: Vector2i) -> void:
+	if not unit.pay_move_token():
+		return
 	var path: PackedVector2Array = _pathfinder.find_path(unit.grid_cell, target, _get_occupied_for_path(unit.grid_cell, target))
 	if path.size() < 2:
+		unit.mp = mini(unit.base_mp, unit.mp + 1)
 		_mode = Mode.NONE
 		_selected_unit = null
 		_clear_highlights()
@@ -446,7 +606,9 @@ func _on_move_finished() -> void:
 		_deselect_after_move = false
 		_deselect_unit()
 	if not _is_ai_turn:
-		_end_turn()
+		if action_panel and turn_manager.get_current_unit():
+			var cu: BattleUnit3D = turn_manager.get_current_unit()
+			action_panel.refresh(_has_attackable_enemy(cu))
 
 
 func _update_debug_label() -> void:
@@ -455,5 +617,5 @@ func _update_debug_label() -> void:
 	var cu: BattleUnit3D = turn_manager.get_current_unit() if turn_manager else null
 	var s: String = "턴: 없음"
 	if cu:
-		s = "턴: %s @ (%d,%d) HP:%d/%d" % [cu.name, cu.grid_cell.x, cu.grid_cell.y, cu.hp, cu.max_hp]
+		s = "턴: %s @ (%d,%d) HP:%d/%d %s" % [cu.name, cu.grid_cell.x, cu.grid_cell.y, cu.hp, cu.max_hp, cu.get_points_text()]
 	debug_label.text = s

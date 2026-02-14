@@ -1,0 +1,135 @@
+[gd_scene load_steps=2 format=3 uid="uid://deployment_ui"]
+
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/deployment_ui.gd" id="1_script"]
+
+[node name="DeploymentUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.14, 0.2, 0.95)
+
+[node name="MainHBox" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+
+[node name="UnitListPanel" type="PanelContainer" parent="MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/panel = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MainHBox/UnitListPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="MainHBox/UnitListPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="MainHBox/UnitListPanel/MarginContainer/VBox"]
+layout_mode = 2
+text = "해금된 유닛"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MainHBox/UnitListPanel/MarginContainer/VBox"]
+custom_minimum_size = Vector2(140, 200)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="UnitList" type="VBoxContainer" parent="MainHBox/UnitListPanel/MarginContainer/VBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="DeployPanel" type="VBoxContainer" parent="MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="LabelSelected" type="Label" parent="MainHBox/DeployPanel"]
+layout_mode = 2
+text = "선택: 없음 (유닛 클릭 후 칸 클릭)"
+
+[node name="RowLabels" type="HBoxContainer" parent="MainHBox/DeployPanel"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="BackRowLabel" type="Label" parent="MainHBox/DeployPanel/RowLabels"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "후열"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FrontRowLabel" type="Label" parent="MainHBox/DeployPanel/RowLabels"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "전열"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GridArea" type="MarginContainer" parent="MainHBox/DeployPanel"]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="GridBg" type="ColorRect" parent="MainHBox/DeployPanel/GridArea"]
+layout_mode = 2
+color = Color(0.18, 0.2, 0.28, 1)
+
+[node name="GridContainer" type="GridContainer" parent="MainHBox/DeployPanel/GridArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 4
+
+[node name="ButtonRow" type="HBoxContainer" parent="MainHBox/DeployPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BtnAuto" type="Button" parent="MainHBox/DeployPanel/ButtonRow"]
+layout_mode = 2
+text = "Auto"
+
+[node name="BtnClear" type="Button" parent="MainHBox/DeployPanel/ButtonRow"]
+layout_mode = 2
+text = "Clear"
+
+[node name="BtnStart" type="Button" parent="MainHBox/DeployPanel/ButtonRow"]
+layout_mode = 2
+text = "Start Battle"

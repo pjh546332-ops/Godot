@@ -47,7 +47,10 @@ func start_battle() -> void:
 	_current_turn_index = 0
 	round_started.emit(_current_round)
 	if _turn_order.size() > 0:
-		turn_started.emit(_turn_order[_current_turn_index])
+		var first: BattleUnit3D = _turn_order[_current_turn_index]
+		if first and first.has_method("reset_turn_points"):
+			first.reset_turn_points()
+		turn_started.emit(first)
 	else:
 		_check_battle_end()
 
@@ -62,6 +65,11 @@ func get_current_unit() -> BattleUnit3D:
 
 
 func end_turn() -> void:
+	end_current_turn()
+
+
+## 수동 턴 종료 API. 현재 턴 유닛을 종료하고 다음 턴으로 넘긴다.
+func end_current_turn() -> void:
 	var current: BattleUnit3D = get_current_unit()
 	if current:
 		turn_ended.emit(current)
@@ -73,7 +81,10 @@ func end_turn() -> void:
 		_build_turn_order()
 		round_started.emit(_current_round)
 	if _turn_order.size() > 0 and _current_turn_index < _turn_order.size():
-		turn_started.emit(_turn_order[_current_turn_index])
+		var next: BattleUnit3D = _turn_order[_current_turn_index]
+		if next and next.has_method("reset_turn_points"):
+			next.reset_turn_points()
+		turn_started.emit(next)
 	else:
 		_check_battle_end()
 

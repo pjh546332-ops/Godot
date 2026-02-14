@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/unit_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = "ARCHER"
+display_name = "궁수"
+unit_class = 5
+max_hp = 9
+attack_damage = 3
+attack_range = 3
+move_range = 4
+base_ap = 3
+base_mp = 1

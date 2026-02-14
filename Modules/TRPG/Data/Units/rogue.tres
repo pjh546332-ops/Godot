@@ -1,0 +1,15 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/unit_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+unit_id = "ROGUE"
+display_name = "도적"
+unit_class = 3
+max_hp = 8
+attack_damage = 3
+attack_range = 1
+move_range = 6
+base_ap = 3
+base_mp = 1

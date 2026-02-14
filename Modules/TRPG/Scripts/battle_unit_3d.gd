@@ -1,31 +1,89 @@
 extends Node3D
 class_name BattleUnit3D
 
-## 전투 유닛: Sprite3D + billboard, 팀/HP/공격, 격자 셀에 위치.
+## 전투 유닛: Sprite3D + billboard, 팀/HP/AP/MP/공격, 격자 셀에 위치.
+## data가 있으면 스탯/이름/스프라이트를 data에서 적용.
 
 enum Team { ALLY, ENEMY }
 
 signal clicked(unit: BattleUnit3D)
 signal died(unit: BattleUnit3D)
 
+@export var data: TrpgUnitData
 @export var team: Team = Team.ALLY
 @export var max_hp: int = 10
 var hp: int = 10
 @export var attack_range: int = 1
 @export var attack_damage: int = 3
 
+## AP(행동 포인트) 기본값/최대
+@export var base_ap: int = 3
+## MP(이동권/비상연료) 기본값/최대
+@export var base_mp: int = 1
+var ap: int = 3
+var mp: int = 1
+
 var grid_cell: Vector2i = Vector2i.ZERO
 var move_range: int = 4
+
+## data에서 파생 (중복 제거)
+var unit_id: String = ""
+var unit_class: int = 0
 
 var _is_dead: bool = false
 
 
 func _ready() -> void:
+	if data:
+		max_hp = data.max_hp
+		attack_damage = data.attack_damage
+		attack_range = data.attack_range
+		move_range = data.move_range
+		base_ap = data.base_ap
+		base_mp = data.base_mp
+		unit_id = data.unit_id
+		unit_class = data.unit_class
+		name = data.display_name if data.display_name else data.unit_id
 	hp = max_hp
+	ap = base_ap
+	mp = base_mp
 	_setup_shadow()
 	_setup_sprite()
 	_setup_collision()
 	_update_sprite_color()
+
+
+func reset_turn_points() -> void:
+	ap = base_ap
+	mp = base_mp
+
+
+func can_move() -> bool:
+	return mp >= 1
+
+
+func can_pay(cost: int) -> bool:
+	return ap >= cost
+
+
+## AP 비용 지불 (공격/스킬 등)
+func pay(cost: int) -> bool:
+	if not can_pay(cost):
+		return false
+	ap = maxi(0, ap - cost)
+	return true
+
+
+## 이동 시 MP 1 소모
+func pay_move_token() -> bool:
+	if not can_move():
+		return false
+	mp = maxi(0, mp - 1)
+	return true
+
+
+func get_points_text() -> String:
+	return "AP:%d/%d MP:%d/%d" % [ap, base_ap, mp, base_mp]
 
 
 func _setup_shadow() -> void:
@@ -66,7 +124,10 @@ func _setup_sprite() -> void:
 	var sprite: Sprite3D = Sprite3D.new()
 	sprite.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	sprite.pixel_size = 0.01
-	sprite.texture = _create_placeholder_texture()
+	if data and data.sprite_texture:
+		sprite.texture = data.sprite_texture
+	else:
+		sprite.texture = _create_placeholder_texture()
 	sprite.position = Vector3(0, 0.5, 0)
 	sprite.name = "Sprite3D"
 	add_child(sprite)

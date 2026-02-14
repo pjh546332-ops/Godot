@@ -1,0 +1,14 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/map_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+map_id = "forest"
+width = 10
+height = 10
+blocked_cells = Array[Vector2i]([Vector2i(4, 3), Vector2i(4, 4), Vector2i(4, 5), Vector2i(5, 3), Vector2i(5, 5), Vector2i(6, 4)])
+ally_deploy_anchor = Vector2i(0, 2)
+deploy_size = Vector2i(4, 4)
+enemy_spawn = Array[Vector2i]([Vector2i(9, 3), Vector2i(9, 4), Vector2i(9, 5)])
+theme = "forest"

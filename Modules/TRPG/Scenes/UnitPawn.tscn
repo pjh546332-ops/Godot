@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://unit_pawn"]
+
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/battle_unit_3d.gd" id="1_unit"]
+
+[node name="UnitPawn" type="Node3D"]
+script = ExtResource("1_unit")
+team = 0
