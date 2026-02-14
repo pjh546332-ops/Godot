@@ -1,12 +1,9 @@
 extends Node3D
 class_name InputRaycast3D
 
-## 레이캐스트로 타일/유닛 클릭 감지. collision_mask 3 = floor(1) + unit(2).
+## 레이캐스트로 타일/유닛 클릭 감지.
 
-const LAYER_FLOOR := 1
-const LAYER_UNIT := 2
-const COLLISION_MASK := 3  ## 1 | 2
-
+const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
 signal tile_hit(cell: Vector2i)
 signal unit_hit(unit: Node)
 ## 이동 중 우클릭 시 발행. 이동 취소 없이 "이동 완료 후 해제" 예약.
@@ -57,7 +54,7 @@ func _perform_raycast() -> void:
 	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from, to)
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
-	query.collision_mask = COLLISION_MASK
+	query.collision_mask = TrpgLayers.COLLISION_MASK_FLOOR_AND_UNIT
 	var result: Dictionary = space.intersect_ray(query)
 	if result.is_empty():
 		tile_hit.emit(Vector2i(-1, -1))

@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://battle_scene_3d"]
+[gd_scene load_steps=7 format=3 uid="uid://battle_scene_3d"]
 
-[ext_resource type="Script" path="res://Scripts/Battle/battle_scene_3d.gd" id="1_battle"]
-[ext_resource type="Script" path="res://Scripts/Battle/grid_board_3d.gd" id="2_grid"]
-[ext_resource type="Script" path="res://Scripts/Battle/battle_unit_3d.gd" id="3_unit"]
-[ext_resource type="Script" path="res://Scripts/Battle/input_raycast_3d.gd" id="4_raycast"]
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/battle_scene_3d.gd" id="1_battle"]
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/grid_board_3d.gd" id="2_grid"]
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/battle_unit_3d.gd" id="3_unit"]
+[ext_resource type="Script" path="res://Modules/TRPG/Scripts/input_raycast_3d.gd" id="4_raycast"]
+[ext_resource type="PackedScene" path="res://Modules/TRPG/Scenes/ActionPanel.tscn" id="5_action"]
 
 [sub_resource type="Environment" id="1_env"]
 background_mode = 1
@@ -33,6 +34,10 @@ script = ExtResource("2_grid")
 [node name="Unit_Ally" type="Node3D" parent="UnitsRoot"]
 script = ExtResource("3_unit")
 
+[node name="Unit_Enemy" type="Node3D" parent="UnitsRoot"]
+script = ExtResource("3_unit")
+team = 1
+
 [node name="InputRaycast" type="Node3D" parent="."]
 script = ExtResource("4_raycast")
 
@@ -44,3 +49,5 @@ offset_top = 20.0
 offset_right = 300.0
 offset_bottom = 60.0
 text = "선택: 없음"
+
+[node name="ActionPanel" parent="CanvasLayer" instance=ExtResource("5_action")]

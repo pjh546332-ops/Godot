@@ -60,7 +60,19 @@ func _to_id(c: Vector2i) -> int:
 	return c.y * _width + c.x
 
 
-func find_path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
+func find_path(from: Vector2i, to: Vector2i, extra_blocked: Array = []) -> PackedVector2Array:
+	for c in extra_blocked:
+		if c != from and c != to:
+			_blocked[c] = true
+	_rebuild_astar()
+	var result: PackedVector2Array = _find_path_internal(from, to)
+	for c in extra_blocked:
+		_blocked.erase(c)
+	_rebuild_astar()
+	return result
+
+
+func _find_path_internal(from: Vector2i, to: Vector2i) -> PackedVector2Array:
 	if from.x < 0 or from.x >= _width or from.y < 0 or from.y >= _height:
 		return PackedVector2Array()
 	if to.x < 0 or to.x >= _width or to.y < 0 or to.y >= _height:

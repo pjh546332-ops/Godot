@@ -25,6 +25,13 @@ func set_occupied(cell: Vector2i, occupied: bool) -> void:
 		_occupied.erase(cell)
 
 
+func get_occupied_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c in _occupied:
+		out.append(c)
+	return out
+
+
 func get_reachable_cells(start: Vector2i, max_distance: int, exclude_occupied: bool = true) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	var visited: Dictionary = {}

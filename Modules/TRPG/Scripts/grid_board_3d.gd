@@ -1,9 +1,9 @@
 extends Node3D
 class_name GridBoard3D
 
-## 격자 보드: 타일 MeshInstance3D + collision. 레이어 1.
+## 격자 보드: 타일 MeshInstance3D + collision.
 
-const LAYER_FLOOR := 1
+const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
 const TILE_SIZE: float = 1.0
 const GRID_WIDTH: int = 10
 const GRID_HEIGHT: int = 10
@@ -40,7 +40,7 @@ func _create_tile(cell: Vector2i, blocked: bool) -> void:
 		float(cell.y) * TILE_SIZE + TILE_SIZE * 0.5
 	)
 	var body: StaticBody3D = StaticBody3D.new()
-	body.collision_layer = LAYER_FLOOR
+	body.collision_layer = TrpgLayers.LAYER_FLOOR
 	body.collision_mask = 0
 	body.name = "Tile_%d_%d" % [cell.x, cell.y]
 	body.position = pos

@@ -11,14 +11,9 @@ config_version=5
 [application]
 
 config/name="TRPG_1"
-run/main_scene="res://Scenes/Battle/BattleScene3D.tscn"
+run/main_scene="res://Modules/TRPG/Scenes/BattleScene3D.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
-
-[display]
-
-window/size/viewport_width=1920
-window/size/viewport_height=1080
 
 [input]
 

@@ -1,20 +1,32 @@
 extends Node3D
 class_name BattleUnit3D
 
-## 전투 유닛: Sprite3D + billboard, 격자 셀에 위치.
+## 전투 유닛: Sprite3D + billboard, 팀/HP/공격, 격자 셀에 위치.
 
-const LAYER_UNIT := 2
+const TrpgLayers = preload("res://Modules/TRPG/Scripts/trpg_layers.gd")
+enum Team { ALLY, ENEMY }
 
 signal clicked(unit: BattleUnit3D)
+signal died(unit: BattleUnit3D)
+
+@export var team: Team = Team.ALLY
+@export var max_hp: int = 10
+var hp: int = 10
+@export var attack_range: int = 1
+@export var attack_damage: int = 3
 
 var grid_cell: Vector2i = Vector2i.ZERO
 var move_range: int = 4
 
+var _is_dead: bool = false
+
 
 func _ready() -> void:
+	hp = max_hp
 	_setup_shadow()
 	_setup_sprite()
 	_setup_collision()
+	_update_sprite_color()
 
 
 func _setup_shadow() -> void:
@@ -59,6 +71,7 @@ func _setup_sprite() -> void:
 	sprite.position = Vector3(0, 0.5, 0)
 	sprite.name = "Sprite3D"
 	add_child(sprite)
+	_update_sprite_color()
 
 
 func _create_placeholder_texture() -> ImageTexture:
@@ -71,9 +84,27 @@ func _create_placeholder_texture() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
+func _update_sprite_color() -> void:
+	var sprite: Sprite3D = get_node_or_null("Sprite3D") as Sprite3D
+	if not sprite or not sprite.texture:
+		return
+	var img: Image = sprite.texture.get_image()
+	if not img:
+		return
+	img = img.duplicate()
+	var col: Color = Color(0.3, 0.8, 0.4, 1.0) if team == Team.ALLY else Color(0.8, 0.3, 0.3, 1.0)
+	var col_border: Color = Color(0.2, 0.6, 0.3, 1.0) if team == Team.ALLY else Color(0.6, 0.2, 0.2, 1.0)
+	img.fill(col)
+	for x in range(32):
+		for y in range(32):
+			if x < 2 or x >= 30 or y < 2 or y >= 30:
+				img.set_pixel(x, y, col_border)
+	sprite.texture = ImageTexture.create_from_image(img)
+
+
 func _setup_collision() -> void:
 	var area: Area3D = Area3D.new()
-	area.collision_layer = LAYER_UNIT
+	area.collision_layer = TrpgLayers.LAYER_UNIT
 	area.collision_mask = 0
 	area.name = "ClickArea"
 	add_child(area)
@@ -100,3 +131,21 @@ func set_grid_cell(cell: Vector2i) -> void:
 
 func get_grid_cell() -> Vector2i:
 	return grid_cell
+
+
+func is_dead() -> bool:
+	return _is_dead or hp <= 0
+
+
+func apply_damage(amount: int) -> void:
+	hp = maxi(0, hp - amount)
+	if hp <= 0:
+		_die()
+
+
+func _die() -> void:
+	if _is_dead:
+		return
+	_is_dead = true
+	died.emit(self)
+	queue_free()
