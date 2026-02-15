@@ -1,12 +1,23 @@
 extends Control
 
-## 낮 던전 탐색. 노드형 맵에서 노드 클릭으로 이동, BATTLE/LOOT/EVENT/BOSS 처리.
+## 낮 던전 탐색. 3분할(HSplit) + 노드 맵(Tween 이동). 배치 탭에서 저장 시 campaign.deployment_placements 반영.
 
-@onready var label_floor: Label = $Margin/VBox/LabelFloor
-@onready var node_map_container: Control = $Margin/VBox/NodeMapContainer
-@onready var node_buttons: HBoxContainer = $Margin/VBox/NodeButtons
-@onready var label_status: Label = $Margin/VBox/LabelStatus
-@onready var btn_to_hub: Button = $Margin/VBox/BtnToHub
+const DeploymentUIScene = preload("res://Modules/TRPG/Scenes/DeploymentUI.tscn")
+
+@onready var margin_container: MarginContainer = $MarginContainer
+@onready var root_hsplit: HSplitContainer = $MarginContainer/RootHSplit
+@onready var left_column: VBoxContainer = $MarginContainer/RootHSplit/LeftColumn
+@onready var interactive_panel: PanelContainer = $MarginContainer/RootHSplit/LeftColumn/InteractivePanel
+@onready var label_title: Label = $MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox/LabelTitle
+@onready var texture_rect_encounter: TextureRect = $MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox/TextureRectEncounter
+@onready var item_buttons_grid: GridContainer = $MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox/ItemButtonsGrid
+@onready var label_desc: Label = $MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox/LabelDesc
+@onready var bottom_tabs_panel: PanelContainer = $MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel
+@onready var tab_container: TabContainer = $MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer
+@onready var deploy_placeholder: Control = $MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Deploy/DeployPlaceholder
+@onready var btn_retreat: Button = $MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Retreat/BtnRetreat
+@onready var right_map_panel: PanelContainer = $MarginContainer/RootHSplit/RightMapPanel
+@onready var map_view: DungeonMapView = $MarginContainer/RootHSplit/RightMapPanel/MapPlaceholder/DungeonMapView
 
 var _router: Node = null
 var _state: Node = null
@@ -15,20 +26,86 @@ var _layout: Dictionary = {}
 var _node_by_id: Dictionary = {}
 var _current_node_id: int = 0
 var _cleared_nodes: Array[int] = []
-const NODE_RADIUS: float = 22.0
+var _deployment_ui: TrpgDeploymentUI = null
 
 
 func _ready() -> void:
 	_state = get_node_or_null("/root/StateService")
-	btn_to_hub.pressed.connect(_on_to_hub)
-	node_map_container.draw.connect(_on_draw_map)
-	node_map_container.gui_input.connect(_on_map_gui_input)
-	node_map_container.mouse_filter = Control.MOUSE_FILTER_STOP
+	btn_retreat.pressed.connect(_on_retreat)
+	map_view.node_reached.connect(_on_node_reached)
+	_set_tab_titles()
+	_build_dummy_item_buttons()
+	_setup_deploy_tab()
 	_load_graph()
 
 
 func set_router(router: Node) -> void:
 	_router = router
+
+
+func _set_tab_titles() -> void:
+	if tab_container.get_tab_count() >= 4:
+		tab_container.set_tab_title(0, "배치")
+		tab_container.set_tab_title(1, "인벤토리")
+		tab_container.set_tab_title(2, "장비")
+		tab_container.set_tab_title(3, "후퇴")
+
+
+func _build_dummy_item_buttons() -> void:
+	for c in item_buttons_grid.get_children():
+		c.queue_free()
+	for i in range(8):
+		var btn: Button = Button.new()
+		btn.text = "아이템 %d" % (i + 1)
+		btn.custom_minimum_size = Vector2(100, 36)
+		item_buttons_grid.add_child(btn)
+
+
+func _setup_deploy_tab() -> void:
+	var dui: TrpgDeploymentUI = DeploymentUIScene.instantiate() as TrpgDeploymentUI
+	deploy_placeholder.add_child(dui)
+	dui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dui.anchor_right = 1.0
+	dui.anchor_bottom = 1.0
+	dui.offset_left = 0.0
+	dui.offset_top = 0.0
+	dui.offset_right = 0.0
+	dui.offset_bottom = 0.0
+	_deployment_ui = dui
+	var roster: TrpgRoster = TrpgRoster.new()
+	if _state and _state.campaign:
+		roster.unlocked_count = _state.campaign.unlocked_count
+	else:
+		roster.unlocked_count = 4
+	var plan: TrpgDeploymentPlan = _plan_from_campaign()
+	dui.setup(roster, plan, null)
+	dui.deployment_confirmed.connect(_on_deploy_saved)
+
+
+func _plan_from_campaign() -> TrpgDeploymentPlan:
+	var p: TrpgDeploymentPlan = TrpgDeploymentPlan.new()
+	if not _state or not _state.campaign:
+		return p
+	var camp = _state.campaign
+	if not camp.get("deployment_placements"):
+		return p
+	for unit_id in camp.deployment_placements:
+		var v = camp.deployment_placements[unit_id]
+		if v is Array and v.size() >= 2:
+			p.set_placement(str(unit_id), Vector2i(int(v[0]), int(v[1])))
+	return p
+
+
+func _on_deploy_saved(plan: TrpgDeploymentPlan) -> void:
+	if not _state or not _state.campaign:
+		return
+	var camp = _state.campaign
+	camp.deployment_placements.clear()
+	for unit_id in plan.placements:
+		var cell: Vector2i = plan.placements[unit_id]
+		camp.deployment_placements[str(unit_id)] = [cell.x, cell.y]
+	_state.save_game()
+	label_desc.text = "배치를 저장했습니다."
 
 
 func _load_graph() -> void:
@@ -60,114 +137,35 @@ func _load_graph() -> void:
 
 
 func _rebuild_ui() -> void:
-	if not label_floor or not _state:
-		return
-	var run = _state.run
-	label_floor.text = "던전 노드 맵"
-	label_status.text = "현재 노드: %d | 룻: %s" % [_current_node_id, str(run.run_loot)]
-	_clear_node_buttons()
-	for n in _graph_nodes:
-		var is_cleared: bool = n.id in _cleared_nodes
-		var can_go: bool = _current_node_id in _node_by_id and n.id in _node_by_id[_current_node_id].next_ids
-		var btn := Button.new()
-		btn.name = "NodeBtn_%d" % n.id
-		var type_name: String = DungeonGraph.get_type_name(n.type)
-		btn.text = "%d:%s" % [n.id, type_name] if not is_cleared else "%d:완료" % n.id
-		btn.disabled = not (can_go and not is_cleared)
-		if can_go and not is_cleared:
-			btn.pressed.connect(_on_node_clicked.bind(n.id))
-		node_buttons.add_child(btn)
-	node_map_container.queue_redraw()
+	label_title.text = "탐색"
+	label_desc.text = "현재 노드: %d | 룻: %s" % [_current_node_id, str(_state.run.run_loot) if _state and _state.run else ""]
+	texture_rect_encounter.visible = false
+	map_view.set_data(_graph_nodes, _layout, _current_node_id, _cleared_nodes)
 
 
-func _clear_node_buttons() -> void:
-	for c in node_buttons.get_children():
-		c.queue_free()
-
-
-func _on_draw_map() -> void:
-	var sz: Vector2 = node_map_container.size
-	if sz.x <= 0 or sz.y <= 0:
-		return
-	var margin: float = 40.0
-	var area: Vector2 = sz - Vector2(margin * 2, margin * 2)
-	var current_node: DungeonGraph.DungeonNode = _node_by_id.get(_current_node_id, null)
-	var next_ids: Array = current_node.next_ids if current_node else []
-
-	for id in _layout:
-		var from_pos: Vector2 = _layout[id] * area + Vector2(margin, margin)
-		var node: DungeonGraph.DungeonNode = _node_by_id.get(id, null)
-		if not node:
-			continue
-		for next_id in node.next_ids:
-			if next_id not in _layout:
-				continue
-			var to_pos: Vector2 = _layout[next_id] * area + Vector2(margin, margin)
-			var color_line: Color = Color(0.35, 0.4, 0.45, 0.9)
-			node_map_container.draw_line(from_pos, to_pos, color_line)
-			node_map_container.draw_line(from_pos, to_pos, Color(0.25, 0.28, 0.32, 0.5))
-
-	for id in _layout:
-		var pos: Vector2 = _layout[id] * area + Vector2(margin, margin)
-		var node: DungeonGraph.DungeonNode = _node_by_id.get(id, null)
-		if not node:
-			continue
-		var is_cleared: bool = id in _cleared_nodes
-		var is_current: bool = (id == _current_node_id)
-		var can_go: bool = id in next_ids
-		var col: Color
-		if is_current:
-			col = Color(0.2, 0.7, 0.35)
-		elif can_go and not is_cleared:
-			col = Color(0.95, 0.75, 0.2)
-		elif is_cleared:
-			col = Color(0.4, 0.45, 0.5)
-		else:
-			col = Color(0.28, 0.3, 0.35)
-		node_map_container.draw_arc(pos, NODE_RADIUS, 0, TAU, 24, col, 2.0)
-		node_map_container.draw_circle(pos, NODE_RADIUS - 2, col)
-		var type_name: String = DungeonGraph.get_type_name(node.type)
-		var label: String = "%d" % id if is_cleared else type_name
-		var font: Font = ThemeDB.fallback_font
-		var fs: int = 12
-		var tw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		node_map_container.draw_string(font, pos - Vector2(tw * 0.5, -4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-
-
-func _on_map_gui_input(event: InputEvent) -> void:
-	if not event is InputEventMouseButton:
-		return
-	var ev: InputEventMouseButton = event as InputEventMouseButton
-	if not ev.pressed or ev.button_index != MOUSE_BUTTON_LEFT:
-		return
-	var sz: Vector2 = node_map_container.size
-	var margin: float = 40.0
-	var area: Vector2 = sz - Vector2(margin * 2, margin * 2)
-	var local: Vector2 = node_map_container.get_local_mouse_position()
-	var current_node: DungeonGraph.DungeonNode = _node_by_id.get(_current_node_id, null)
-	var next_ids: Array = current_node.next_ids if current_node else []
-
-	for id in _layout:
-		var pos: Vector2 = _layout[id] * area + Vector2(margin, margin)
-		if local.distance_to(pos) <= NODE_RADIUS:
-			if id in next_ids and id not in _cleared_nodes:
-				_on_node_clicked(id)
-			return
-
-
-func _on_node_clicked(node_id: int) -> void:
+func _on_node_reached(node_id: int) -> void:
 	if node_id not in _node_by_id:
 		return
 	var n: DungeonGraph.DungeonNode = _node_by_id[node_id]
 	match n.type:
 		DungeonGraph.NodeType.BATTLE:
-			_enter_battle(node_id, false)
+			_show_encounter_then_battle(node_id, false)
 		DungeonGraph.NodeType.BOSS:
-			_enter_battle(node_id, true)
+			_show_encounter_then_battle(node_id, true)
 		DungeonGraph.NodeType.LOOT:
 			_do_loot(node_id)
 		DungeonGraph.NodeType.EVENT:
 			_do_event(node_id)
+		DungeonGraph.NodeType.START:
+			_rebuild_ui()
+
+
+func _show_encounter_then_battle(node_id: int, is_boss: bool) -> void:
+	texture_rect_encounter.visible = true
+	label_desc.text = "조우!"
+	await get_tree().create_timer(0.7).timeout
+	texture_rect_encounter.visible = false
+	_enter_battle(node_id, is_boss)
 
 
 func _enter_battle(node_id: int, is_boss: bool) -> void:
@@ -187,6 +185,7 @@ func _do_loot(node_id: int) -> void:
 		return
 	_state.run.run_loot.append("더미_아이템_%d" % (randi() % 100))
 	_state.save_game()
+	label_desc.text = "보물을 획득했습니다."
 	_complete_node(node_id)
 
 
@@ -198,10 +197,12 @@ func _do_event(node_id: int) -> void:
 		for uid in TrpgIds.UNIT_IDS:
 			var f: int = c.fatigue.get(uid, 0)
 			c.fatigue[uid] = clampi(f + 10, 0, 100)
+		label_desc.text = "이벤트: 피로도가 올랐습니다."
 	else:
 		var uid: String = TrpgIds.UNIT_IDS[randi() % TrpgIds.UNIT_IDS.size()]
 		var b: int = c.bonds.get(uid, 0)
 		c.bonds[uid] = b + 1
+		label_desc.text = "이벤트: 유대가 올랐습니다."
 	_state.save_game()
 	_complete_node(node_id)
 
@@ -214,8 +215,8 @@ func _complete_node(node_id: int) -> void:
 		_state.run.cleared_dungeon_node_ids.clear()
 		_state.run.cleared_dungeon_node_ids.assign(_cleared_nodes)
 		_state.save_game()
-	var n: DungeonGraph.DungeonNode = _node_by_id.get(node_id, null)
-	if n and n.type == DungeonGraph.NodeType.BOSS:
+	var node: DungeonGraph.DungeonNode = _node_by_id.get(node_id, null)
+	if node and node.type == DungeonGraph.NodeType.BOSS:
 		_advance_after_boss()
 	else:
 		_rebuild_ui()
@@ -236,6 +237,13 @@ func _advance_after_boss() -> void:
 		_router.go_to_hub()
 	else:
 		_load_graph()
+
+
+func _on_retreat() -> void:
+	if _state and _state.has_method("end_run"):
+		_state.end_run(true)
+	if _router and _router.has_method("go_to_hub"):
+		_router.go_to_hub()
 
 
 func _on_to_hub() -> void:

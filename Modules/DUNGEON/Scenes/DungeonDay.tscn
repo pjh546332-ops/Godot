@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://dungeon_day_module"]
+[gd_scene load_steps=3 format=3 uid="uid://dungeon_day_module"]
 
 [ext_resource type="Script" path="res://Modules/DUNGEON/Scripts/dungeon_day.gd" id="1_dungeon"]
+[ext_resource type="PackedScene" uid="uid://dungeon_map_view" path="res://Modules/DUNGEON/Scenes/DungeonMapView.tscn" id="2_map"]
 
 [node name="DungeonDay" type="Control"]
 layout_mode = 3
@@ -20,7 +21,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.18, 0.22, 0.2, 1)
 
-[node name="Margin" type="MarginContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,29 +33,117 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
+[node name="RootHSplit" type="HSplitContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 600
+theme_override_constants/separation = 12
+
+[node name="LeftColumn" type="VBoxContainer" parent="MarginContainer/RootHSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+custom_minimum_size = Vector2(560, 0)
+
+[node name="InteractivePanel" type="PanelContainer" parent="MarginContainer/RootHSplit/LeftColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/panel = 4
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer/RootHSplit/LeftColumn/InteractivePanel"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="LabelFloor" type="Label" parent="Margin/VBox"]
+[node name="LabelTitle" type="Label" parent="MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox"]
 layout_mode = 2
-text = "던전 1층"
+text = "탐색"
 horizontal_alignment = 1
 
-[node name="NodeMapContainer" type="Control" parent="Margin/VBox"]
+[node name="TextureRectEncounter" type="TextureRect" parent="MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox"]
+visible = false
 layout_mode = 2
-custom_minimum_size = Vector2(0, 280)
-size_flags_vertical = 3
-mouse_filter = 1
+custom_minimum_size = Vector2(0, 80)
+stretch_mode = 5
 
-[node name="NodeButtons" type="HBoxContainer" parent="Margin/VBox"]
+[node name="ItemButtonsGrid" type="GridContainer" parent="MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox"]
 layout_mode = 2
+columns = 4
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="LabelDesc" type="Label" parent="MarginContainer/RootHSplit/LeftColumn/InteractivePanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "노드를 클릭해 이동하세요."
+autowrap_mode = 2
+
+[node name="BottomTabsPanel" type="PanelContainer" parent="MarginContainer/RootHSplit/LeftColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 420)
+theme_override_constants/panel = 4
+
+[node name="TabContainer" type="TabContainer" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel"]
+layout_mode = 2
+
+[node name="Tab_Deploy" type="VBoxContainer" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="LabelStatus" type="Label" parent="Margin/VBox"]
+[node name="DeployPlaceholder" type="Control" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Deploy"]
 layout_mode = 2
-text = "현재 노드: 0 | 룻: []"
+size_flags_vertical = 3
 
-[node name="BtnToHub" type="Button" parent="Margin/VBox"]
+[node name="Tab_Inventory" type="VBoxContainer" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer"]
+visible = false
 layout_mode = 2
-text = "← 거점으로"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TabTitle" type="Label" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Inventory"]
+layout_mode = 2
+text = "인벤토리 (placeholder)"
+
+[node name="Tab_Equip" type="VBoxContainer" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TabTitle" type="Label" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Equip"]
+layout_mode = 2
+text = "장비 (placeholder)"
+
+[node name="Tab_Retreat" type="VBoxContainer" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="LabelRetreatDesc" type="Label" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Retreat"]
+layout_mode = 2
+text = "던전을 떠나 거점으로 돌아갑니다. 획득한 룻은 보존됩니다."
+autowrap_mode = 2
+
+[node name="BtnRetreat" type="Button" parent="MarginContainer/RootHSplit/LeftColumn/BottomTabsPanel/TabContainer/Tab_Retreat"]
+layout_mode = 2
+text = "후퇴"
+
+[node name="RightMapPanel" type="PanelContainer" parent="MarginContainer/RootHSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/panel = 4
+
+[node name="MapPlaceholder" type="Control" parent="MarginContainer/RootHSplit/RightMapPanel"]
+layout_mode = 2
+
+[node name="DungeonMapView" parent="MarginContainer/RootHSplit/RightMapPanel/MapPlaceholder" instance=ExtResource("2_map")]
+layout_mode = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

@@ -41,6 +41,8 @@ func setup(p_roster: TrpgRoster, p_plan: TrpgDeploymentPlan = null, p_map: TrpgM
 	roster = p_roster
 	plan = p_plan if p_plan else TrpgDeploymentPlan.new()
 	map = p_map
+	if btn_start:
+		btn_start.text = "저장" if map == null else "전투 시작"
 	if is_node_ready():
 		_build_unit_list()
 		_build_grid()

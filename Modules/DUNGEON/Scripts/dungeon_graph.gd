@@ -4,6 +4,7 @@ class_name DungeonGraph
 ## 던전 층 그래프 생성. 노드 타입 및 인접 관계.
 
 enum NodeType {
+	START,
 	BATTLE,
 	LOOT,
 	EVENT,
@@ -49,6 +50,8 @@ static func _rand_mid_type(rng: RandomNumberGenerator) -> NodeType:
 
 static func get_type_name(t: NodeType) -> String:
 	match t:
+		NodeType.START:
+			return ""
 		NodeType.BATTLE:
 			return "전투"
 		NodeType.LOOT:
@@ -63,8 +66,8 @@ static func get_type_name(t: NodeType) -> String:
 ## 노드형 던전 맵: 고정 레이아웃 10~15노드. 하단 시작 → 중간 분기 → 상단 보스 1개.
 static func generate_test_graph() -> Array[DungeonNode]:
 	var nodes: Array[DungeonNode] = []
-	# 하단 시작(0) → 1,2 → 3,4,5 → 6,7 → 8,9 → 10(보스). 총 11노드. 분기 구조.
-	nodes.append(DungeonNode.new(0, NodeType.EVENT, [1, 2]))
+	# 하단 시작(0) → 1,2. Node 0은 START(맨 아래, 텍스트 없음).
+	nodes.append(DungeonNode.new(0, NodeType.START, [1, 2]))
 	nodes.append(DungeonNode.new(1, NodeType.BATTLE, [3, 4]))
 	nodes.append(DungeonNode.new(2, NodeType.LOOT, [4, 5]))
 	nodes.append(DungeonNode.new(3, NodeType.EVENT, [6]))

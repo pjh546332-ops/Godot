@@ -35,7 +35,7 @@ var turn_manager: TurnManager
 var _is_ai_turn: bool = false
 
 @export var unlocked_count: int = 4
-@export var skip_deployment: bool = false
+@export var skip_deployment: bool = true
 @export var available_maps: Array[TrpgMapData] = []
 var roster: TrpgRoster
 var _current_map: TrpgMapData
@@ -57,12 +57,30 @@ func _ready() -> void:
 	_setup_camera()
 	_setup_pathfinding()
 	if skip_deployment or not deployment_ui:
-		var auto_plan: TrpgDeploymentPlan = _create_auto_plan()
-		_do_start_battle(auto_plan)
+		var saved_plan: TrpgDeploymentPlan = _get_saved_deployment_plan()
+		var plan: TrpgDeploymentPlan = saved_plan if saved_plan else _create_auto_plan()
+		_do_start_battle(plan)
 	else:
 		deployment_ui.setup(roster, null, _current_map)
 		deployment_ui.deployment_confirmed.connect(_on_deployment_confirmed)
 		deployment_ui.visible = true
+
+
+func _get_saved_deployment_plan() -> TrpgDeploymentPlan:
+	var ss: Node = get_node_or_null("/root/StateService")
+	if not ss or not ss.get("campaign"):
+		return null
+	var camp = ss.campaign
+	if not camp.get("deployment_placements") or camp.deployment_placements.is_empty():
+		return null
+	var p: TrpgDeploymentPlan = TrpgDeploymentPlan.new()
+	for unit_id in camp.deployment_placements:
+		var v = camp.deployment_placements[unit_id]
+		if v is Array and v.size() >= 2:
+			p.set_placement(str(unit_id), Vector2i(int(v[0]), int(v[1])))
+		elif v is Vector2i:
+			p.set_placement(str(unit_id), v)
+	return p
 
 
 func _create_auto_plan() -> TrpgDeploymentPlan:
