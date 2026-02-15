@@ -15,7 +15,6 @@ enum Mode { NONE, MOVE, ATTACK }
 @onready var input_raycast: InputRaycast3D = $InputRaycast
 @onready var debug_label: Label = $CanvasLayer/Label
 @onready var action_panel: ActionPanel = $CanvasLayer/ActionPanel
-@onready var deployment_ui: TrpgDeploymentUI = $CanvasLayer/DeploymentUI
 
 const MOVE_DURATION: float = 0.3
 const HIGHLIGHT_COLOR: Color = Color(0.3, 0.9, 0.4, 0.8)
@@ -35,7 +34,6 @@ var turn_manager: TurnManager
 var _is_ai_turn: bool = false
 
 @export var unlocked_count: int = 4
-@export var skip_deployment: bool = true
 @export var available_maps: Array[TrpgMapData] = []
 var roster: TrpgRoster
 var _current_map: TrpgMapData
@@ -56,14 +54,9 @@ func _ready() -> void:
 	grid_board.apply_map(_current_map)
 	_setup_camera()
 	_setup_pathfinding()
-	if skip_deployment or not deployment_ui:
-		var saved_plan: TrpgDeploymentPlan = _get_saved_deployment_plan()
-		var plan: TrpgDeploymentPlan = saved_plan if saved_plan else _create_auto_plan()
-		_do_start_battle(plan)
-	else:
-		deployment_ui.setup(roster, null, _current_map)
-		deployment_ui.deployment_confirmed.connect(_on_deployment_confirmed)
-		deployment_ui.visible = true
+	var saved_plan: TrpgDeploymentPlan = _get_saved_deployment_plan()
+	var plan: TrpgDeploymentPlan = saved_plan if saved_plan else _create_auto_plan()
+	_do_start_battle(plan)
 
 
 func _get_saved_deployment_plan() -> TrpgDeploymentPlan:
@@ -94,12 +87,6 @@ func _create_auto_plan() -> TrpgDeploymentPlan:
 			p.set_placement(ids[idx], Vector2i(x, y))
 			idx += 1
 	return p
-
-
-func _on_deployment_confirmed(plan: TrpgDeploymentPlan) -> void:
-	if deployment_ui:
-		deployment_ui.visible = false
-	_do_start_battle(plan)
 
 
 func _do_start_battle(plan: TrpgDeploymentPlan) -> void:
@@ -495,8 +482,6 @@ func _count_enemies_in_cells(cells: Array[Vector2i]) -> int:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("end_turn"):
-		return
-	if deployment_ui and deployment_ui.visible:
 		return
 	if _is_ai_turn or _is_moving:
 		return

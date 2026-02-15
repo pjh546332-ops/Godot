@@ -1,11 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://battle_scene_3d"]
+[gd_scene load_steps=7 format=3 uid="uid://battle_scene_3d"]
 
 [ext_resource type="Script" path="res://Modules/TRPG/Scripts/battle_scene_3d.gd" id="1_battle"]
 [ext_resource type="Script" path="res://Modules/TRPG/Scripts/grid_board_3d.gd" id="2_grid"]
 [ext_resource type="Script" path="res://Modules/TRPG/Scripts/battle_unit_3d.gd" id="3_unit"]
 [ext_resource type="Script" path="res://Modules/TRPG/Scripts/input_raycast_3d.gd" id="4_raycast"]
 [ext_resource type="PackedScene" path="res://Modules/TRPG/Scenes/ActionPanel.tscn" id="5_action"]
-[ext_resource type="PackedScene" path="res://Modules/TRPG/Scenes/DeploymentUI.tscn" id="6_deploy"]
 
 [sub_resource type="Environment" id="1_env"]
 background_mode = 1
@@ -49,11 +48,3 @@ offset_bottom = 60.0
 text = "선택: 없음"
 
 [node name="ActionPanel" parent="CanvasLayer" instance=ExtResource("5_action")]
-
-[node name="DeploymentUI" parent="CanvasLayer" instance=ExtResource("6_deploy")]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
