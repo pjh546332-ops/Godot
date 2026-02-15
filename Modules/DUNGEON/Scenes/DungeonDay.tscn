@@ -41,6 +41,12 @@ layout_mode = 2
 text = "던전 1층"
 horizontal_alignment = 1
 
+[node name="NodeMapContainer" type="Control" parent="Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 280)
+size_flags_vertical = 3
+mouse_filter = 1
+
 [node name="NodeButtons" type="HBoxContainer" parent="Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8

@@ -58,3 +58,63 @@ static func get_type_name(t: NodeType) -> String:
 		NodeType.BOSS:
 			return "보스"
 	return "?"
+
+
+## 노드형 던전 맵: 고정 레이아웃 10~15노드. 하단 시작 → 중간 분기 → 상단 보스 1개.
+static func generate_test_graph() -> Array[DungeonNode]:
+	var nodes: Array[DungeonNode] = []
+	# 하단 시작(0) → 1,2 → 3,4,5 → 6,7 → 8,9 → 10(보스). 총 11노드. 분기 구조.
+	nodes.append(DungeonNode.new(0, NodeType.EVENT, [1, 2]))
+	nodes.append(DungeonNode.new(1, NodeType.BATTLE, [3, 4]))
+	nodes.append(DungeonNode.new(2, NodeType.LOOT, [4, 5]))
+	nodes.append(DungeonNode.new(3, NodeType.EVENT, [6]))
+	nodes.append(DungeonNode.new(4, NodeType.BATTLE, [6, 7]))
+	nodes.append(DungeonNode.new(5, NodeType.LOOT, [7]))
+	nodes.append(DungeonNode.new(6, NodeType.BATTLE, [8]))
+	nodes.append(DungeonNode.new(7, NodeType.EVENT, [8, 9]))
+	nodes.append(DungeonNode.new(8, NodeType.LOOT, [10]))
+	nodes.append(DungeonNode.new(9, NodeType.BATTLE, [10]))
+	nodes.append(DungeonNode.new(10, NodeType.BOSS, []))
+	return nodes
+
+
+## BFS로 행 할당 후, 행별로 x 위치 분배. id → Vector2 (맵 그리기용).
+static func get_node_layout(nodes: Array[DungeonNode], start_id: int) -> Dictionary:
+	var id_to_node: Dictionary = {}
+	for n in nodes:
+		id_to_node[n.id] = n
+	var row_by_id: Dictionary = {}
+	var queue: Array = [start_id]
+	row_by_id[start_id] = 0
+	var qidx: int = 0
+	while qidx < queue.size():
+		var cur: int = queue[qidx]
+		qidx += 1
+		var node: DungeonNode = id_to_node.get(cur, null)
+		if not node:
+			continue
+		var next_row: int = row_by_id[cur] + 1
+		for nid in node.next_ids:
+			if nid not in row_by_id:
+				row_by_id[nid] = next_row
+				queue.append(nid)
+	var row_to_ids: Dictionary = {}
+	for id in row_by_id:
+		var r: int = row_by_id[id]
+		if r not in row_to_ids:
+			row_to_ids[r] = []
+		row_to_ids[r].append(id)
+	for r in row_to_ids:
+		row_to_ids[r].sort()
+	var layout: Dictionary = {}
+	var row_count: int = row_to_ids.size()
+	for r in range(row_count):
+		var ids_in_row: Array = row_to_ids.get(r, [])
+		var n_in_row: int = ids_in_row.size()
+		for i in range(n_in_row):
+			var nid: int = ids_in_row[i]
+			# x: 0~1 보간, y: 아래(0) ~ 위(1)
+			var x: float = (float(i) + 0.5) / max(1, n_in_row) if n_in_row > 0 else 0.5
+			var y: float = 1.0 - float(r) / max(1, row_count - 1) if row_count > 1 else 0.5
+			layout[nid] = Vector2(x, y)
+	return layout
